@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { type SensorReading, getDeviceStatus, getStatusLevel } from '../lib/data';
+import { type DeviceStatus, type SensorReading, getStatusLevel } from '../lib/data';
 import {
   Fan,
   Power,
@@ -15,15 +14,30 @@ import {
 
 interface ControlPanelProps {
   reading: SensorReading;
+  deviceStatus: DeviceStatus;
+  manualMode: boolean;
+  onManualModeChange: (manualMode: boolean) => void;
+  onDeviceStatusChange: (deviceStatus: DeviceStatus) => void;
 }
 
-export default function ControlPanel({ reading }: ControlPanelProps) {
-  const device = getDeviceStatus(reading);
-  const [manualMode, setManualMode] = useState(false);
-  const [fanOverride, setFanOverride] = useState(device.fan);
-  const [relayOverride, setRelayOverride] = useState(device.relay);
-
+export default function ControlPanel({
+  reading,
+  deviceStatus,
+  manualMode,
+  onManualModeChange,
+  onDeviceStatusChange,
+}: ControlPanelProps) {
   const moldStatus = getStatusLevel(reading.moldRisk, 'moldRisk');
+  const fanOverride = deviceStatus.fan;
+  const relayOverride = deviceStatus.relay;
+
+  const updateDeviceStatus = (updates: Partial<DeviceStatus>) => {
+    onDeviceStatusChange({
+      ...deviceStatus,
+      ...updates,
+      lastUpdate: new Date().toISOString(),
+    });
+  };
 
   const rules = [
     {
@@ -129,7 +143,7 @@ export default function ControlPanel({ reading }: ControlPanelProps) {
           </div>
 
           <button
-            onClick={() => setManualMode(!manualMode)}
+            onClick={() => onManualModeChange(!manualMode)}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -209,7 +223,7 @@ export default function ControlPanel({ reading }: ControlPanelProps) {
             </div>
 
             <button
-              onClick={() => setFanOverride(!fanOverride)}
+              onClick={() => updateDeviceStatus({ fan: !fanOverride })}
               style={{
                 padding: '8px 20px',
                 borderRadius: '8px',
@@ -268,7 +282,7 @@ export default function ControlPanel({ reading }: ControlPanelProps) {
             </div>
 
             <button
-              onClick={() => setRelayOverride(!relayOverride)}
+              onClick={() => updateDeviceStatus({ relay: !relayOverride })}
               style={{
                 padding: '8px 20px',
                 borderRadius: '8px',

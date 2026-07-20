@@ -1,6 +1,6 @@
 'use client';
 
-import { type SensorReading, getStatusLevel, getDeviceStatus } from '../lib/data';
+import { type DeviceStatus, type SensorReading, getDeviceStatus, getStatusLevel } from '../lib/data';
 import {
   ShieldAlert,
   Fan,
@@ -13,10 +13,11 @@ import {
 
 interface StatusOverviewProps {
   reading: SensorReading;
+  deviceStatus?: DeviceStatus;
 }
 
-export default function StatusOverview({ reading }: StatusOverviewProps) {
-  const device = getDeviceStatus(reading);
+export default function StatusOverview({ reading, deviceStatus }: StatusOverviewProps) {
+  const device = deviceStatus ?? getDeviceStatus(reading);
   const moldStatus = getStatusLevel(reading.moldRisk, 'moldRisk');
 
   const riskColor =

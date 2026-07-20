@@ -12,12 +12,14 @@ import HistoryTable from './components/HistoryTable';
 import SettingsPanel from './components/SettingsPanel';
 import AboutPanel from './components/AboutPanel';
 import {
+  type DeviceStatus,
   type SensorReading,
   type Alert,
   generate24HourData,
   generate7DayData,
   getCurrentReading,
   generateAlerts,
+  getDeviceStatus,
   thresholds as defaultThresholds,
 } from './lib/data';
 import {
@@ -43,11 +45,44 @@ export default function Home() {
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [customThresholds, setCustomThresholds] = useState(defaultThresholds);
+  const [manualMode, setManualMode] = useState(false);
+  const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
 
   // Sync theme to DOM html tag
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const savedControl = window.localStorage.getItem('silo-device-control');
+    if (!savedControl) return;
+
+    try {
+      const parsed = JSON.parse(savedControl) as {
+        manualMode?: boolean;
+        deviceStatus?: DeviceStatus;
+      };
+
+      if (typeof parsed.manualMode === 'boolean') {
+        setManualMode(parsed.manualMode);
+      }
+
+      if (parsed.deviceStatus) {
+        setDeviceStatus(parsed.deviceStatus);
+      }
+    } catch {
+      window.localStorage.removeItem('silo-device-control');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!deviceStatus) return;
+
+    window.localStorage.setItem(
+      'silo-device-control',
+      JSON.stringify({ manualMode, deviceStatus })
+    );
+  }, [deviceStatus, manualMode]);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -56,6 +91,13 @@ export default function Home() {
   const refreshData = useCallback(() => {
     const reading = getCurrentReading();
     setCurrentReading(reading);
+    setDeviceStatus(prevDeviceStatus => {
+      if (manualMode && prevDeviceStatus) {
+        return prevDeviceStatus;
+      }
+
+      return getDeviceStatus(reading);
+    });
     setData24h(generate24HourData());
     setData7d(generate7DayData());
 
@@ -74,7 +116,7 @@ export default function Home() {
     });
     
     setLastRefresh(Date.now());
-  }, []);
+  }, [manualMode]);
 
   useEffect(() => {
     refreshData();
@@ -112,7 +154,7 @@ export default function Home() {
     }
   };
 
-  if (!currentReading) {
+  if (!currentReading || !deviceStatus) {
     return (
       <div
         style={{
@@ -175,7 +217,7 @@ export default function Home() {
         return (
           <>
             {/* Status Banner */}
-            <StatusOverview reading={currentReading} />
+            <StatusOverview reading={currentReading} deviceStatus={deviceStatus} />
 
             {/* Sensor Cards */}
             <div style={{ marginBottom: '24px' }}>
@@ -229,7 +271,7 @@ export default function Home() {
             </div>
             <SensorCards reading={currentReading} />
             <div style={{ marginTop: '24px' }}>
-              <StatusOverview reading={currentReading} />
+              <StatusOverview reading={currentReading} deviceStatus={deviceStatus} />
             </div>
           </>
         );
@@ -315,7 +357,13 @@ export default function Home() {
                 Automatic control and manual override for ventilation equipment
               </p>
             </div>
-            <ControlPanel reading={currentReading} />
+            <ControlPanel
+              reading={currentReading}
+              deviceStatus={deviceStatus}
+              manualMode={manualMode}
+              onManualModeChange={setManualMode}
+              onDeviceStatusChange={setDeviceStatus}
+            />
           </>
         );
 
